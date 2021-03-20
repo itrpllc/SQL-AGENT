@@ -153,6 +153,24 @@ CREATE TABLE dbo.ActiveJobs (
 
 IF NOT EXISTS (
 	SELECT 1
+	FROM sys.tables
+	WHERE name = 'ExcludeJobs'
+)
+CREATE TABLE dbo.ExcludeJobs (
+	JobId					UNIQUEIDENTIFIER
+		CONSTRAINT PK_ExcludeJobs
+			PRIMARY KEY CLUSTERED
+);
+
+
+INSERT dbo.ExcludeJobs
+VALUES (
+	'F22988D2-B5A2-44F6-AAE1-31C1DA6CE8C1'
+);
+
+
+IF NOT EXISTS (
+	SELECT 1
 	FROM sys.sequences
 	WHERE [name] = 'ActiveJobStepHistory'
 )
@@ -230,20 +248,23 @@ BEGIN
 	SELECT 
 		@SNAPSHOT_KEY
 	,	@SESSION_ID
-	,	job_id
-	,	run_requested_date
-	,	run_requested_source
-	,	queued_date
-	,	start_execution_date
-	,	last_executed_step_id
-	,	last_executed_step_date
-	,	stop_execution_date
-	,	job_history_id
-	,	next_scheduled_run_date
-	FROM msdb.dbo.sysjobactivity 
+	,	a.job_id
+	,	a.run_requested_date
+	,	a.run_requested_source
+	,	a.queued_date
+	,	a.start_execution_date
+	,	a.last_executed_step_id
+	,	a.last_executed_step_date
+	,	a.stop_execution_date
+	,	a.job_history_id
+	,	a.next_scheduled_run_date
+	FROM msdb.dbo.sysjobactivity a
+	LEFT JOIN dbo.ExcludeJobs x
+	ON x.JobId = a.job_id
 	WHERE session_id = @SESSION_ID
 	AND start_execution_date IS NOT NULL
-	AND stop_execution_date IS NULL;
+	AND stop_execution_date IS NULL
+	AND x.JobId IS NULL;
 
 
 	INSERT dbo.Jobs (

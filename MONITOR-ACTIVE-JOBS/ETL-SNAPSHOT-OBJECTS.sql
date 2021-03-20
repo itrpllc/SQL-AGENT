@@ -12,6 +12,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.SimulateQuickJobStepDuration
 	@MULTIPLIER	INT = 1000
 ,	@MOD		INT = 555
+,	@WAIT		BIT = 1
 AS
 BEGIN
 	DECLARE
@@ -19,11 +20,13 @@ BEGIN
 	,	@WAIT_UNTIL	DATETIME
 	,	@TIME		VARCHAR(50);
 
-	SET @SECONDS = CAST(RAND() * @MULTIPLIER AS INT) % @MOD;
+	SET @SECONDS = (CAST(RAND() * @MULTIPLIER AS INT) % @MOD) + 60;
 	SET @WAIT_UNTIL = DATEADD(second, @SECONDS, GETDATE());
 	SET @TIME = CONVERT(VARCHAR(50), @WAIT_UNTIL, 121);
 	RAISERROR(@TIME, 0, 1) WITH NOWAIT;
-	WAITFOR TIME @WAIT_UNTIL;
+
+	IF @WAIT = 1
+		WAITFOR TIME @WAIT_UNTIL;
 END
 
 
@@ -184,6 +187,122 @@ CREATE TABLE dbo.JobStepHistory (
 );
 
 
+
+CREATE OR ALTER PROCEDURE dbo.CAPTURE_SQL_AGENT_JOBS_RUNNING_SNAPSHOT
+AS
+BEGIN
+	DECLARE 
+		@SNAPSHOT_KEY		BIGINT = NEXT VALUE FOR dbo.SnapshotKey
+	,	@SNAPSHOT_DATE		DATETIME = GETDATE()
+	,	@SESSION_ID			INT;
+
+	SET @SESSION_ID = (
+		SELECT MAX(session_id)
+		FROM msdb.dbo.syssessions
+	);
+
+
+	INSERT dbo.ActiveJobsSnapshot (
+		SnapshotKey				
+	,	CreatedDate	
+	)
+	VALUES (
+		@SNAPSHOT_KEY
+	,	@SNAPSHOT_DATE
+	);
+
+
+	-- Load jobs currently executing
+	INSERT dbo.ActiveJobs (
+		SnapshotKey				
+	,	SessionId				
+	,	JobId					
+	,	RunRequestedDate		
+	,	RunRequestedSource		
+	,	QueuedDate				
+	,	StartExecutionDate		
+	,	LastExecutedStepId		
+	,	LastExecutedStepDate	
+	,	StopExecutionDate		
+	,	JobHistoryId			
+	,	NextScheduledRunDate	
+	)
+	SELECT 
+		@SNAPSHOT_KEY
+	,	@SESSION_ID
+	,	job_id
+	,	run_requested_date
+	,	run_requested_source
+	,	queued_date
+	,	start_execution_date
+	,	last_executed_step_id
+	,	last_executed_step_date
+	,	stop_execution_date
+	,	job_history_id
+	,	next_scheduled_run_date
+	FROM msdb.dbo.sysjobactivity 
+	WHERE session_id = @SESSION_ID
+	AND start_execution_date IS NOT NULL
+	AND stop_execution_date IS NULL;
+
+
+	INSERT dbo.Jobs (
+		SnapshotKey						
+	,	JobId			
+	,	JobName			
+	,	CreatedDate		
+	,	ModifiedDate	
+	,	VersionNumber
+	)
+	SELECT
+		@SNAPSHOT_KEY
+	,	j.job_id
+	,	j.[name]
+	,	j.date_created
+	,	j.date_modified
+	,	j.version_number
+	FROM msdb.dbo.sysjobs j
+	JOIN dbo.ActiveJobs a
+	ON a.JobId = j.job_Id
+	WHERE a.SnapshotKey = @SNAPSHOT_KEY;
+
+
+	-- Load all SQL Agent history for the jobs currently running
+	INSERT dbo.ActiveJobStepHistory (
+		SnapshotKey
+	,	JobId			
+	,	JobInstanceId	
+	,	JobStepId		
+	,	JobStepName		
+	,	RunStatus		
+	,	StartDate			
+	,	RunDuration		
+	,	EndDate			
+	)
+	SELECT
+		@SNAPSHOT_KEY
+	,	h.job_id
+	,	h.instance_id
+	,	h.step_id
+	,	h.step_name
+	,	h.run_status
+	,	msdb.dbo.agent_datetime(h.run_date, h.run_time) start_datetime
+	,	(h.[run_duration] / 10000 * 3600) +		-- convert hours to seconds
+		(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
+		(h.[run_duration] % 10000) % 100 / 60	AS duration_seconds
+	,	DATEADD(
+			second
+		,	h.[run_duration] / 10000 * 3600 +			-- convert hours to seconds
+			(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
+			(h.[run_duration] % 10000) % 100			-- get seconds
+		,	msdb.dbo.agent_datetime(h.run_date, run_time)
+		)
+	FROM dbo.ActiveJobs a
+	JOIN msdb.dbo.sysjobhistory h
+	ON h.job_id = a.JobId
+	WHERE a.SnapshotKey = @SNAPSHOT_KEY
+	AND h.run_status = 1;	-- 1=succeeded; ignore other statuses
+END
 
 
 

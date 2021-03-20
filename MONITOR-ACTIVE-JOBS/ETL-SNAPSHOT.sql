@@ -28,10 +28,6 @@ VALUES (
 ,	@SNAPSHOT_DATE
 );
 
-SELECT TOP 1 *
-FROM dbo.ActiveJobsSnapshot
-ORDER BY SnapshotKey DESC;
-
 
 -- Load jobs currently executing
 INSERT dbo.ActiveJobs (

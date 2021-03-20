@@ -97,6 +97,51 @@ FROM dbo.Jobs
 WHERE SnapshotKey = @SNAPSHOT_KEY;
 
 
+-- Load all SQL Agent history for the jobs currently running
+INSERT dbo.ActiveJobStepHistory (
+	SnapshotKey
+,	JobId			
+,	JobInstanceId	
+,	JobStepId		
+,	JobStepName		
+,	RunStatus		
+,	StartDate			
+,	RunDuration		
+,	EndDate			
+)
+SELECT
+	@SNAPSHOT_KEY
+,	h.job_id
+,	h.instance_id
+,	h.step_id
+,	h.step_name
+,	h.run_status
+,	msdb.dbo.agent_datetime(h.run_date, h.run_time) start_datetime
+,	(h.[run_duration] / 10000 * 3600) +		-- convert hours to seconds
+	(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
+	(h.[run_duration] % 10000) % 100 / 60	AS duration_seconds
+,	DATEADD(
+		second
+	,	h.[run_duration] / 10000 * 3600 +			-- convert hours to seconds
+		(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
+		(h.[run_duration] % 10000) % 100			-- get seconds
+	,	msdb.dbo.agent_datetime(h.run_date, run_time)
+	)
+FROM dbo.ActiveJobs a
+JOIN msdb.dbo.sysjobhistory h
+ON h.job_id = a.JobId
+WHERE a.SnapshotKey = @SNAPSHOT_KEY
+AND h.run_status = 1;	-- 1=succeeded; ignore other statuses
+
+
+DECLARE @TODAY DATE = GETDATE();
+SELECT *
+FROM dbo.ActiveJobStepHistory 
+WHERE SnapshotKey = @SNAPSHOT_KEY
+AND StartDate > @TODAY;
+
+
+
 
 
 

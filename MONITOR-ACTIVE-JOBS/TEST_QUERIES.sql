@@ -1,11 +1,16 @@
 USE SQL_AGENT_SNAPSHOT
 GO
 
+SELECT *
+FROM dbo.Jobs;
+
+
 DECLARE @SNAPSHOT_KEY BIGINT;
 SELECT TOP 1 
 	@SNAPSHOT_KEY = SnapshotKey
 FROM [dbo].[ActiveJobsSnapshot]
 ORDER BY SnapshotKey DESC;
+
 
 SELECT TOP 1 *
 FROM dbo.ActiveJobsSnapshot
@@ -14,6 +19,7 @@ ORDER BY SnapshotKey DESC;
 
 SELECT 
 	a.SnapshotKey
+,	a.JobKey
 ,	j.JobName
 ,	a.StartExecutionDate
 ,	a.LastExecutedStepId
@@ -21,9 +27,8 @@ SELECT
 ,	a.NextScheduledRunDate
 FROM dbo.ActiveJobs a
 JOIN dbo.Jobs j
-ON j.JobId = a.JobId
-WHERE a.SnapshotKey = @SNAPSHOT_KEY
-AND j.SnapshotKey = @SNAPSHOT_KEY;
+ON j.JobKey = a.JobKey
+WHERE a.SnapshotKey = @SNAPSHOT_KEY;
 
 SELECT 
 	*
@@ -34,5 +39,37 @@ ORDER BY StartDate DESC;
 
 
 
+
+/*
+
+	TRUNCATE TABLE dbo.Jobs;
+
+	;WITH CTE_JOB_ID AS (
+		SELECT DISTINCT
+			JobId
+		FROM dbo.ActiveJobs
+	)
+
+	INSERT dbo.Jobs (
+	 	JobId			
+	,	JobName			
+	,	CreatedDate		
+	,	ModifiedDate	
+	,	VersionNumber
+	)
+	SELECT
+		s.job_id
+	,	s.[name]
+	,	s.date_created
+	,	s.date_modified
+	,	s.version_number
+	FROM msdb.dbo.sysjobs s
+	JOIN CTE_JOB_ID a
+	ON a.JobId = s.job_Id
+	LEFT JOIN dbo.Jobs j
+	ON j.JobId = a.JobId
+	WHERE j.[JobName] IS NULL;
+
+	*/
 
 

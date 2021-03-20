@@ -75,3 +75,40 @@ BEGIN
 END
 GO  
 
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.tables
+	WHERE name = 'ActiveJobs'
+)
+CREATE TABLE dbo.ActiveJobs (
+	SnapshotKey				BIGINT
+,	SessionId				INT
+,	JobId					UNIQUEIDENTIFIER
+,	RunRequestedDate		DATETIME
+,	RunRequestedSource		NVARCHAR(128)
+,	QueuedDate				DATETIME
+,	StartExecutionDate		DATETIME
+,	LastExecutedStepId		INT
+,	LastExecutedStepDate	DATETIME
+,	StopExecutionDate		DATETIME
+,	JobHistoryId			INT
+,	NextScheduledRunDate	DATETIME
+)
+
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.tables
+	WHERE name = 'ActiveJobsSnapshot'
+)
+CREATE TABLE dbo.ActiveJobsSnapshot (
+	SnapshotKey				BIGINT
+		CONSTRAINT PK_ActiveJobsSnapshot
+			PRIMARY KEY CLUSTERED
+,	CreatedDate				DATETIME
+);
+
+
+
+

@@ -67,5 +67,36 @@ AND start_execution_date IS NOT NULL
 AND stop_execution_date IS NULL;
 
 
+SELECT *
+FROM dbo.ActiveJobs
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+
+INSERT dbo.Jobs (
+	SnapshotKey						
+,	JobId			
+,	JobName			
+,	CreatedDate		
+,	ModifiedDate	
+,	VersionNumber
+)
+SELECT
+	@SNAPSHOT_KEY
+,	j.job_id
+,	j.[name]
+,	j.date_created
+,	j.date_modified
+,	j.version_number
+FROM msdb.dbo.sysjobs j
+JOIN dbo.ActiveJobs a
+ON a.JobId = j.job_Id
+WHERE a.SnapshotKey = @SNAPSHOT_KEY;
+
+SELECT *
+FROM dbo.Jobs
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+
+
 
 

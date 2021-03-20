@@ -117,8 +117,7 @@ IF NOT EXISTS (
 	WHERE [name] = 'Jobs'
 )
 CREATE TABLE dbo.Jobs (
-	SnapshotKey		INT				NOT NULL
-,	JobKey			INT	IDENTITY	NOT NULL
+ 	JobKey			INT	IDENTITY	NOT NULL
 		CONSTRAINT PK_Jobs
 			PRIMARY KEY CLUSTERED
 ,	JobId			UNIQUEIDENTIFIER	NOT NULL
@@ -129,6 +128,11 @@ CREATE TABLE dbo.Jobs (
 )
 GO
 
+
+/*
+ALTER TABLE dbo.ActiveJobs
+ADD JobKey INT;
+*/
 
 IF NOT EXISTS (
 	SELECT 1
@@ -148,7 +152,9 @@ CREATE TABLE dbo.ActiveJobs (
 ,	StopExecutionDate		DATETIME
 ,	JobHistoryId			INT
 ,	NextScheduledRunDate	DATETIME
+,	JobKey					INT
 )
+
 
 
 IF NOT EXISTS (
@@ -267,25 +273,42 @@ BEGIN
 	AND x.JobId IS NULL;
 
 
+	-- Insert and JobId that isn't in the Jobs table
+	-- Could probably limit to just ActiveJobs WHERE 
+	-- SnapshotKey = @SNAPSHOT_KEY
+	;WITH CTE_JOB_ID AS (
+		SELECT DISTINCT
+			JobId
+		FROM dbo.ActiveJobs
+	)
+
 	INSERT dbo.Jobs (
-		SnapshotKey						
-	,	JobId			
+	 	JobId			
 	,	JobName			
 	,	CreatedDate		
 	,	ModifiedDate	
 	,	VersionNumber
 	)
 	SELECT
-		@SNAPSHOT_KEY
-	,	j.job_id
-	,	j.[name]
-	,	j.date_created
-	,	j.date_modified
-	,	j.version_number
-	FROM msdb.dbo.sysjobs j
-	JOIN dbo.ActiveJobs a
-	ON a.JobId = j.job_Id
-	WHERE a.SnapshotKey = @SNAPSHOT_KEY;
+		s.job_id
+	,	s.[name]
+	,	s.date_created
+	,	s.date_modified
+	,	s.version_number
+	FROM msdb.dbo.sysjobs s
+	JOIN CTE_JOB_ID a
+	ON a.JobId = s.job_Id
+	LEFT JOIN dbo.Jobs j
+	ON j.JobId = a.JobId
+	WHERE j.[JobName] IS NULL;
+
+
+	UPDATE a
+	SET JobKey = j.JobKey
+	FROM dbo.ActiveJobs a
+	JOIN dbo.Jobs j
+	ON j.JobId = a.JobId
+	WHERE SnapshotKey = @SNAPSHOT_KEY;
 
 
 	-- Load all SQL Agent history for the jobs currently running

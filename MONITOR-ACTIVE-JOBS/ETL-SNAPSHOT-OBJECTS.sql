@@ -76,6 +76,21 @@ END
 GO  
 
 
+CREATE TABLE dbo.Jobs (
+	SnapshotKey		INT				NOT NULL
+,	JobId			INT	IDENTITY	NOT NULL
+		CONSTRAINT PK_Jobs
+			PRIMARY KEY CLUSTERED
+,	JobName			NVARCHAR(128)	NOT NULL
+,	CreatedDate		DATETIME		NOT NULL
+,	ModifiedDate	DATETIME		NULL
+,	VersionNumber	INT				NOT NULL
+)
+GO
+
+
+
+
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.tables

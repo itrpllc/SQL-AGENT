@@ -76,19 +76,36 @@ END
 GO  
 
 
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.tables
+	WHERE name = 'ActiveJobsSnapshot'
+)
+CREATE TABLE dbo.ActiveJobsSnapshot (
+	SnapshotKey				BIGINT
+		CONSTRAINT PK_ActiveJobsSnapshot
+			PRIMARY KEY CLUSTERED
+,	CreatedDate				DATETIME
+);
+
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.sequences
+	WHERE [name] = 'Jobs'
+)
 CREATE TABLE dbo.Jobs (
 	SnapshotKey		INT				NOT NULL
-,	JobId			INT	IDENTITY	NOT NULL
+,	JobKey			INT	IDENTITY	NOT NULL
 		CONSTRAINT PK_Jobs
 			PRIMARY KEY CLUSTERED
+,	JobId			UNIQUEIDENTIFIER	NOT NULL
 ,	JobName			NVARCHAR(128)	NOT NULL
 ,	CreatedDate		DATETIME		NOT NULL
 ,	ModifiedDate	DATETIME		NULL
 ,	VersionNumber	INT				NOT NULL
 )
 GO
-
-
 
 
 IF NOT EXISTS (
@@ -114,15 +131,47 @@ CREATE TABLE dbo.ActiveJobs (
 
 IF NOT EXISTS (
 	SELECT 1
-	FROM sys.tables
-	WHERE name = 'ActiveJobsSnapshot'
+	FROM sys.sequences
+	WHERE [name] = 'ActiveJobStepHistory'
 )
-CREATE TABLE dbo.ActiveJobsSnapshot (
-	SnapshotKey				BIGINT
-		CONSTRAINT PK_ActiveJobsSnapshot
-			PRIMARY KEY CLUSTERED
-,	CreatedDate				DATETIME
+CREATE TABLE dbo.ActiveJobStepHistory (
+	SnapshotKey		INT					NOT NULL
+,	JobId			UNIQUEIDENTIFIER	NOT NULL
+,	JobInstanceId	INT					NOT NULL
+,	JobStepId		INT					NOT NULL
+,	JobStepName		NVARCHAR(128)		NOT NULL
+,	RunStatus		INT					NOT NULL
+,	StartDate		DATETIME			NOT NULL
+,	RunDuration		INT					NOT NULL	-- seconds
+,	EndDate			DATETIME			NULL
 );
+
+
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.sequences
+	WHERE [name] = 'JobStepHistory'
+)
+CREATE TABLE dbo.JobStepHistory (
+	SnapshotKey		INT					NOT NULL
+,	JobId			UNIQUEIDENTIFIER	NOT NULL
+,	JobInstanceId	INT					NOT NULL
+,	JobStepId		INT					NOT NULL
+,	JobStepName		NVARCHAR(128)		NOT NULL
+,	RunStatus		INT					NOT NULL
+,	RunDate			DATETIME			NOT NULL
+,	RunDuration		INT					NOT NULL	-- seconds
+);
+
+
+
+
+
+
+
+
+
 
 
 

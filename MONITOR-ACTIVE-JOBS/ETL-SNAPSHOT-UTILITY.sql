@@ -21,3 +21,14 @@ select *
 from sys.dm_exec_describe_first_result_set(@tsql, null, 1);
 
 
+declare @tsql nvarchar(max) = N'SELECT TOP 1 * FROM msdb.dbo.sysjobs';
+select [name], system_type_name
+from sys.dm_exec_describe_first_result_set(@tsql, null, 1);
+
+
+declare @tsql nvarchar(max) = N'SELECT TOP 1 * FROM msdb.dbo.sysjobhistory';
+select [name], system_type_name
+from sys.dm_exec_describe_first_result_set(@tsql, null, 1);
+
+SELECT CAST(RAND() * 1000 AS INT) % 555
+

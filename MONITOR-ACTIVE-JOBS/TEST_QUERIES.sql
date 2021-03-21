@@ -11,12 +11,6 @@ SELECT TOP 1
 FROM [dbo].[ActiveJobsSnapshot]
 ORDER BY SnapshotKey DESC;
 
-
-SELECT TOP 1 *
-FROM dbo.ActiveJobsSnapshot
-ORDER BY SnapshotKey DESC;
-
-
 SELECT 
 	a.SnapshotKey
 ,	a.JobKey
@@ -25,10 +19,38 @@ SELECT
 ,	a.LastExecutedStepId
 ,	a.LastExecutedStepDate
 ,	a.NextScheduledRunDate
+,	a.JobDuration
 FROM dbo.ActiveJobs a
 JOIN dbo.Jobs j
 ON j.JobKey = a.JobKey
 WHERE a.SnapshotKey = @SNAPSHOT_KEY;
+
+SELECT *
+FROM dbo.ActiveJobAverageDuration
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+SELECT *
+FROM dbo.ActiveJobStepAverageDuration
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+
+
+SELECT *
+FROM dbo.ActiveJobStepHistory
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+SELECT *
+FROM dbo.ActiveJobHistory
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+------------------------------------
+
+SELECT TOP 1 *
+FROM dbo.ActiveJobsSnapshot
+ORDER BY SnapshotKey DESC;
+
+
+
 
 SELECT 
 	*
@@ -38,7 +60,14 @@ WHERE SnapshotKey = @SNAPSHOT_KEY
 ORDER BY StartDate DESC;
 
 
+SELECT *
+FROM dbo.ActiveJobStepHistory
+WHERE SnapshotKey = @SNAPSHOT_KEY;
 
+
+SELECT *
+FROM dbo.ActiveJobHistory
+WHERE SnapshotKey = @SNAPSHOT_KEY;
 
 /*
 

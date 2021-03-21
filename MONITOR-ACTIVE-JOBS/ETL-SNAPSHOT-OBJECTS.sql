@@ -132,6 +132,10 @@ GO
 /*
 ALTER TABLE dbo.ActiveJobs
 ADD JobKey INT;
+
+-- calulate how long the job has been running
+ALTER TABLE dbo.ActiveJobs
+ADD JobDuration INT;
 */
 
 IF NOT EXISTS (
@@ -153,6 +157,7 @@ CREATE TABLE dbo.ActiveJobs (
 ,	JobHistoryId			INT
 ,	NextScheduledRunDate	DATETIME
 ,	JobKey					INT
+,	JobDuration				INT
 )
 
 
@@ -250,6 +255,7 @@ BEGIN
 	,	StopExecutionDate		
 	,	JobHistoryId			
 	,	NextScheduledRunDate	
+	,	JobDuration
 	)
 	SELECT 
 		@SNAPSHOT_KEY
@@ -264,6 +270,7 @@ BEGIN
 	,	a.stop_execution_date
 	,	a.job_history_id
 	,	a.next_scheduled_run_date
+	,	DATEDIFF(second, a.start_execution_date, @SNAPSHOT_DATE)
 	FROM msdb.dbo.sysjobactivity a
 	LEFT JOIN dbo.ExcludeJobs x
 	ON x.JobId = a.job_id

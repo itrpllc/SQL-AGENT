@@ -180,6 +180,12 @@ VALUES (
 );
 
 
+	/*
+	ALTER TABLE dbo.ActiveJobStepHistory
+	ADD JobKey	INT;
+
+	*/
+
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.sequences
@@ -195,6 +201,7 @@ CREATE TABLE dbo.ActiveJobStepHistory (
 ,	StartDate		DATETIME			NOT NULL
 ,	RunDuration		INT					NOT NULL	-- seconds
 ,	EndDate			DATETIME			NULL
+,	JobKey			INT					NOT NULL
 );
 
 
@@ -318,6 +325,8 @@ BEGIN
 	WHERE SnapshotKey = @SNAPSHOT_KEY;
 
 
+
+
 	-- Load all SQL Agent history for the jobs currently running
 	INSERT dbo.ActiveJobStepHistory (
 		SnapshotKey
@@ -328,7 +337,8 @@ BEGIN
 	,	RunStatus		
 	,	StartDate			
 	,	RunDuration		
-	,	EndDate			
+	,	EndDate		
+	,	JobKey	
 	)
 	SELECT
 		@SNAPSHOT_KEY
@@ -348,6 +358,7 @@ BEGIN
 			(h.[run_duration] % 10000) % 100			-- get seconds
 		,	msdb.dbo.agent_datetime(h.run_date, run_time)
 		)
+	,	a.JobKey
 	FROM dbo.ActiveJobs a
 	JOIN msdb.dbo.sysjobhistory h
 	ON h.job_id = a.JobId

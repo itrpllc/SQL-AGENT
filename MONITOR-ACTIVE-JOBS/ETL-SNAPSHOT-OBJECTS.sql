@@ -136,6 +136,32 @@ ADD JobKey INT;
 -- calulate how long the job has been running
 ALTER TABLE dbo.ActiveJobs
 ADD JobDuration INT;
+
+-- Add average job duration
+ALTER TABLE dbo.ActiveJobs
+ADD JobAverageDuration INT;
+
+-- Add estimated completion date based on start time + 
+-- average duration of remaining steps. Account for how long
+-- current step is running
+ALTER TABLE dbo.ActiveJobs
+ADD EstimatedCompletionDate	DATETIME;
+--> 	StartExecutionDate + 
+-->		StepsCompletedDuration + 
+-->		AverageRemainingStepsDuration 
+
+ALTER TABLE dbo.ActiveJobs
+ADD StepsCompletedDuration	INT;
+--> actual duration for job steps completed
+
+ALTER TABLE dbo.ActiveJobs
+ADD LastStepCompleted	INT;
+--> MAX(step_id) of steps completed so far
+
+ALTER TABLE dbo.ActiveJobs
+ADD AverageRemainingDuration	INT; 
+--> SUM of average duration for steps remaining
+
 */
 
 IF NOT EXISTS (
@@ -158,6 +184,11 @@ CREATE TABLE dbo.ActiveJobs (
 ,	NextScheduledRunDate	DATETIME
 ,	JobKey					INT
 ,	JobDuration				INT
+,	JobAverageDuration		INT
+,	EstimatedCompletionDate	DATETIME
+,	StepsCompletedDuration	INT
+,	LastStepCompleted		INT
+,	AverageRemainingDuration	INT
 )
 
 
@@ -489,6 +520,60 @@ BEGIN
 	WHERE SnapshotKey = @SNAPSHOT_KEY
 	GROUP BY JobKey, JobStepId;
 
+
+	-- Get the MAX step completed in the ActiveJobs
+	-- and the total duration for the completed step(s)
+	-- Update ActiveJobs
+	;WITH CTE_ACTIVE_JOBS_COMPLETED_STEPS AS (
+		SELECT
+		 	a.JobKey
+		,	SUM(s.RunDuration)	AS StepsCompletedDuration
+		,	MAX(s.JobStepId)	AS LastStepCompleted
+		FROM dbo.ActiveJobs a
+		JOIN dbo.ActiveJobStepHistory s
+		ON a.JobKey = s.JobKey
+		WHERE a.SnapshotKey = @SNAPSHOT_KEY
+		AND s.SnapshotKey = @SNAPSHOT_KEY
+		AND s.StartDate >= a.StartExecutionDate
+		GROUP BY a.JobKey
+	)
+
+	UPDATE a
+	SET
+		StepsCompletedDuration = s.StepsCompletedDuration
+	,	LastStepCompleted = s.LastStepCompleted
+	FROM dbo.ActiveJobs a
+	JOIN CTE_ACTIVE_JOBS_COMPLETED_STEPS s
+	ON s.JobKey = a.JobKey
+	WHERE a.SnapshotKey = @SNAPSHOT_KEY;
+
+	-- Get the SUM of the average duration for the 
+	-- steps remaining and update ActiveJobs
+	;WITH CTE_ACTIVE_JOBS_AVERAGE_REMAINING_DURATION AS (
+		SELECT 
+		 	a.JobKey
+		,	SUM(s.AverageDuration)	AS AverageRemainingDuration
+		FROM dbo.ActiveJobs a
+		JOIN dbo.ActiveJobStepAverageDuration s
+		ON a.JobKey = s.JobKey
+		WHERE a.SnapshotKey = @SNAPSHOT_KEY
+		AND s.SnapshotKey = @SNAPSHOT_KEY
+		AND s.JobStepId > ISNULL(a.LastExecutedStepId, 0)
+		GROUP BY a.JobKey
+	)
+
+	UPDATE a
+	SET
+		AverageRemainingDuration = s.AverageRemainingDuration
+	,	EstimatedCompletionDate = DATEADD(
+			second
+		,	ISNULL(StepsCompletedDuration, JobDuration) + s.AverageRemainingDuration
+		,	StartExecutionDate
+	)
+	FROM dbo.ActiveJobs a
+	JOIN CTE_ACTIVE_JOBS_AVERAGE_REMAINING_DURATION  s
+	ON s.JobKey = a.JobKey
+	WHERE a.SnapshotKey = @SNAPSHOT_KEY;
 END
 
 

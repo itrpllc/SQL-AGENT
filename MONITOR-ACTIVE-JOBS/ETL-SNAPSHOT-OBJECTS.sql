@@ -209,17 +209,47 @@ CREATE TABLE dbo.ActiveJobStepHistory (
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.sequences
-	WHERE [name] = 'JobStepHistory'
+	WHERE [name] = 'ActiveJobHistory'
 )
-CREATE TABLE dbo.JobStepHistory (
+CREATE TABLE dbo.ActiveJobHistory (
 	SnapshotKey		INT					NOT NULL
+,	JobKey			INT					NOT NULL
 ,	JobId			UNIQUEIDENTIFIER	NOT NULL
 ,	JobInstanceId	INT					NOT NULL
-,	JobStepId		INT					NOT NULL
-,	JobStepName		NVARCHAR(128)		NOT NULL
 ,	RunStatus		INT					NOT NULL
-,	RunDate			DATETIME			NOT NULL
-,	RunDuration		INT					NOT NULL	-- seconds
+,	StartDate		DATETIME			NOT NULL
+,	Duration		INT					NOT NULL	-- seconds
+,	EndDate			DATETIME			NOT NULL
+);
+
+
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.sequences
+	WHERE [name] = 'ActiveJobAverageDuration'
+)
+CREATE TABLE dbo.ActiveJobAverageDuration (
+	SnapshotKey			INT					NOT NULL
+,	JobKey				INT					NOT NULL
+,	JobExecutionCount	INT					NOT NULL
+,	TotalDuration		INT					NOT NULL
+,	AverageDuration		INT					NOT NULL
+);
+
+
+IF NOT EXISTS (
+	SELECT 1
+	FROM sys.sequences
+	WHERE [name] = 'ActiveJobStepAverageDuration'
+)
+CREATE TABLE dbo.ActiveJobStepAverageDuration (
+	SnapshotKey			INT					NOT NULL
+,	JobKey				INT					NOT NULL
+,	JobStepId			INT					NOT NULL
+,	JobExecutionCount	INT					NOT NULL
+,	TotalDuration		INT					NOT NULL
+,	AverageDuration		INT					NOT NULL
 );
 
 
@@ -232,12 +262,16 @@ BEGIN
 	,	@SNAPSHOT_DATE		DATETIME = GETDATE()
 	,	@SESSION_ID			INT;
 
+	-- Get the current SQL Agent session_id. Use as a filter on 
+	-- msdb.dbo.sysjobactivity
 	SET @SESSION_ID = (
 		SELECT MAX(session_id)
 		FROM msdb.dbo.syssessions
 	);
 
 
+	-- Insert a new row for the current snapshot. Use as filter to
+	-- retrieve the data for a snapshot.
 	INSERT dbo.ActiveJobsSnapshot (
 		SnapshotKey				
 	,	CreatedDate	
@@ -248,7 +282,9 @@ BEGIN
 	);
 
 
-	-- Load jobs currently executing
+	-- Load jobs currently running and associate with the current
+	-- snapshot (@SNAPSHOT_KEY); query msdb.dbo.sysjobactivity,
+	-- filter ExcludeJobs and msdb.dbo.syssessions (via @SESSION_ID)
 	INSERT dbo.ActiveJobs (
 		SnapshotKey				
 	,	SessionId				
@@ -277,6 +313,8 @@ BEGIN
 	,	a.stop_execution_date
 	,	a.job_history_id
 	,	a.next_scheduled_run_date
+		-- calculate how long the job has been running;
+		-- @SNAPSHOT_DATE is the current date time
 	,	DATEDIFF(second, a.start_execution_date, @SNAPSHOT_DATE)
 	FROM msdb.dbo.sysjobactivity a
 	LEFT JOIN dbo.ExcludeJobs x
@@ -287,9 +325,11 @@ BEGIN
 	AND x.JobId IS NULL;
 
 
-	-- Insert and JobId that isn't in the Jobs table
-	-- Could probably limit to just ActiveJobs WHERE 
-	-- SnapshotKey = @SNAPSHOT_KEY
+	-- Insert any JobId that isn't in the Jobs table
+	-- Insert values from msdb.dbo.sysjobs
+	-- Query ActiveJobs, join to msdb.dbo.sysjobs 
+	-- Update ActiveJobs with JobKey (surrogate key) from Jobs
+	--
 	;WITH CTE_JOB_ID AS (
 		SELECT DISTINCT
 			JobId
@@ -325,9 +365,10 @@ BEGIN
 	WHERE SnapshotKey = @SNAPSHOT_KEY;
 
 
-
-
-	-- Load all SQL Agent history for the jobs currently running
+	-- Load all SQL Agent job step execution history for the jobs currently 
+	-- running
+	-- Query msdb.dbo.sysjobhistory; filter on job step succeeded rows
+	-- (1 per job step per job execution where step_id > 0)
 	INSERT dbo.ActiveJobStepHistory (
 		SnapshotKey
 	,	JobId			
@@ -353,9 +394,9 @@ BEGIN
 		(h.[run_duration] % 10000) % 100 / 60	AS duration_seconds
 	,	DATEADD(
 			second
-		,	h.[run_duration] / 10000 * 3600 +			-- convert hours to seconds
+		,	h.[run_duration] / 10000 * 3600 +		-- convert hours to seconds
 			(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
-			(h.[run_duration] % 10000) % 100			-- get seconds
+			(h.[run_duration] % 10000) % 100		-- get seconds
 		,	msdb.dbo.agent_datetime(h.run_date, run_time)
 		)
 	,	a.JobKey
@@ -363,7 +404,91 @@ BEGIN
 	JOIN msdb.dbo.sysjobhistory h
 	ON h.job_id = a.JobId
 	WHERE a.SnapshotKey = @SNAPSHOT_KEY
-	AND h.run_status = 1;	-- 1=succeeded; ignore other statuses
+	AND h.run_status = 1	-- 1=succeeded; ignore other statuses
+	AND h.step_id > 0;		-- exclude the job outcome row; only get the job steps
+
+
+	-- Load all SQL Agent job execution history for the jobs currently running
+	-- Query msdb.dbo.sysjobhistory; filter on job outcome succeeded rows
+	-- (1 per job execution, where step_id = 0)
+	INSERT dbo.ActiveJobHistory (
+		SnapshotKey		
+	,	JobKey			
+	,	JobId			
+	,	JobInstanceId	
+	,	RunStatus		
+	,	StartDate		
+	,	Duration		
+	,	EndDate			
+	)
+
+	SELECT
+		@SNAPSHOT_KEY
+	,	a.JobKey
+	,	h.job_id
+	,	h.instance_id
+	,	h.run_status
+	,	msdb.dbo.agent_datetime(h.run_date, h.run_time) AS start_datetime
+	,	(h.[run_duration] / 10000 * 3600) +		-- convert hours to seconds
+		(h.[run_duration] % 10000) / 100 * 60 +	-- convert minutes to seconds
+		(h.[run_duration] % 10000) % 100 / 60	AS duration_seconds
+	,	DATEADD(
+			second
+		,	h.[run_duration] / 10000 * 3600 +			-- convert hours to seconds
+			(h.[run_duration] % 10000) / 100 * 60 +		-- convert minutes to seconds
+			(h.[run_duration] % 10000) % 100			-- get seconds
+		,	msdb.dbo.agent_datetime(h.run_date, run_time)
+		) AS end_datetime
+	FROM dbo.ActiveJobs a
+	JOIN msdb.dbo.sysjobhistory h
+	ON h.job_id = a.JobId
+	WHERE a.SnapshotKey = @SNAPSHOT_KEY
+	AND h.run_status = 1	-- 1=succeeded; ignore other statuses
+	AND h.step_id = 0;		-- only get the job outcome row; ignore job steps
+
+
+	-- Calculate the historical average duration for the active jobs
+	INSERT dbo.ActiveJobAverageDuration (
+		SnapshotKey			
+	,	JobKey				
+	,	JobExecutionCount	
+	,	TotalDuration		
+	,	AverageDuration		
+	)
+
+	SELECT
+		@SNAPSHOT_KEY		
+	,	JobKey			
+	,	COUNT(*)			
+	,	SUM(Duration)		
+	,	AVG(Duration)		
+	FROM dbo.ActiveJobHistory 
+	WHERE SnapshotKey = @SNAPSHOT_KEY
+	GROUP BY JobKey;
+
+
+	-- Calculate the historical average duration for the steps 
+	-- in active jobs
+	INSERT dbo.ActiveJobStepAverageDuration (
+		SnapshotKey			
+	,	JobKey				
+	,	JobStepId			
+	,	JobExecutionCount	
+	,	TotalDuration		
+	,	AverageDuration		
+	)
+
+	SELECT
+		@SNAPSHOT_KEY		
+	,	JobKey			
+	,	JobStepId
+	,	COUNT(*)			
+	,	SUM(RunDuration)		
+	,	AVG(RunDuration)		
+	FROM dbo.ActiveJobStepHistory 
+	WHERE SnapshotKey = @SNAPSHOT_KEY
+	GROUP BY JobKey, JobStepId;
+
 END
 
 

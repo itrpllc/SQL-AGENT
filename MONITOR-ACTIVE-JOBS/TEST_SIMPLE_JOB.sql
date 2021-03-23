@@ -11,10 +11,24 @@ USE SQL_AGENT_SNAPSHOT
 GO
 
 
+DECLARE @SNAPSHOT_KEY	INT;
+
 SELECT TOP 1 
-	SnapshotKey
+	@SNAPSHOT_KEY = SnapshotKey
 FROM [dbo].[ActiveJobsSnapshot]
 ORDER BY SnapshotKey DESC;
+
+SELECT TOP 1 *
+FROM [dbo].[ActiveJobsSnapshot]
+ORDER BY SnapshotKey DESC;
+
+SELECT *
+FROM dbo.ActiveJobs
+WHERE SnapshotKey = @SNAPSHOT_KEY;
+
+
+-------------------------------------------------------
+
 
 -- Run the queries below with the following values
 -- for @SNAPSHOT_KEY:

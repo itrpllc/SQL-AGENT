@@ -1,0 +1,32 @@
+Webinar: https://www.mssqltips.com/sql-server-webcast-signup/?id=850&src=WebcastList
+
+Intelligently Monitor SQL Server Agent
+
+SQL Server provides limited monitoring capabilities for SQL Agent jobs in SQL Server Management Studio (SSMS). 
+You have the Job Activity Monitor and View History for a job, while these items provide useful information, you need more.
+
+In this webinar, learn how to use and query the system tables in the msdb database to retrieve the data you need to 
+support your own customized SQL Agent monitoring solution.
+
+In this session I will demonstrate:
+
++ Calculating average job step and job duration based on job history
++ Sending notifications for jobs that are running longer than normal
++ Predicting when a currently running job step and job will complete based on job history
++ Using a Power BI report to view this information on demand and more.
+
+
+Prior tips:
+https://www.mssqltips.com/sqlservertip/6598/sql-server-agent-monitoring-with-power-bi/
+
+https://www.mssqltips.com/sqlservertip/6626/sql-server-agent-data-mart-incremental-load/
+
+https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/
+
+https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/periodic-snapshot-fact-table/
+
+https://www.mssqltips.com/sqlservertip/1100/setting-up-database-mail-for-sql-server/
+
+https://www.mssqltips.com/sqlservertip/2578/setup-sql-server-database-mail-to-use-a-gmail-hotmail-or-outlook-account/
+
+

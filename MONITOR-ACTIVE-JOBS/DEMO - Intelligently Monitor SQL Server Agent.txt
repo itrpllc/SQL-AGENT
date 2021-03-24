@@ -1,0 +1,40 @@
+
+TO DO:
+
++ Update Power BI report to sort 
+MSSQLTips URL: https://www.mssqltips.com/sql-server-webcast-signup/?id=850&src=WebcastList
+
+Presentation Folder: C:\Users\raymo\Dropbox\MSSQLTips\WEBINAR - Intelligently Monitor SQL Server Agent
+* remember to include the PDF version of the slides
+
+Code Folder: C:\DEV\itrpllc\SQL-AGENT\MONITOR-ACTIVE-JOBS
+
+
+DEMO STEPS
+
++ Open SSMS
+
++ Show SQL Server Agent stuff
+  + Expand SQL Server Agent Jobs
+  + Open CRM ETL job and walk thru what's in sysjobs and sysjobsteps
+  + Show Job Activity Monitor
+
++ Open ETL-SNAPSHOT-OBJECTS.sql to review the stored proc
+  dbo.CAPTURE_SQL_AGENT_JOBS_RUNNING_SNAPSHOT
+
++ Open TEST_SIMPLE_JOB.sql and review the first block of code
+
+
+Power BI report MonitorActiveJobs
+
+Sample snapshots
+3/23/2021 9:00AM shows 4 jobs starting execution at 9:00AM
+
+3/23/2021 9:01AM shows 4 jobs running for 60 seconds so far,
+                 AverageRemainingDuration, and EstimatedCompletionDate
+
+3/23/2021 9:01AM shows 2 jobs still running
+
+
+
+

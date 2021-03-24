@@ -1,13 +1,8 @@
 
-TO DO:
 
-+ Update Power BI report to sort 
 MSSQLTips URL: https://www.mssqltips.com/sql-server-webcast-signup/?id=850&src=WebcastList
 
-Presentation Folder: C:\Users\raymo\Dropbox\MSSQLTips\WEBINAR - Intelligently Monitor SQL Server Agent
-* remember to include the PDF version of the slides
-
-Code Folder: C:\DEV\itrpllc\SQL-AGENT\MONITOR-ACTIVE-JOBS
+Presentation / demo code Folder: C:\DEV\itrpllc\SQL-AGENT\MONITOR-ACTIVE-JOBS
 
 
 DEMO STEPS
